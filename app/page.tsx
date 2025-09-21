@@ -168,21 +168,22 @@ export default function HomePage() {
                             <span
                               className="avatar"
                               style={{
-                                backgroundImage: `url('${(() => {
+                                backgroundImage: (() => {
                                   const src = p.imageSrc || '';
                                   if (!src) return '';
                                   // If already proxied, do not wrap again
-                                  if (src.startsWith('/api/proxy/image') || src.includes('/api/proxy/image')) return src;
+                                  if (src.startsWith('/api/proxy/image') || src.includes('/api/proxy/image')) return `url("${src}")`;
                                   try {
                                     const u = new URL(src);
                                     const stp = u.searchParams.get('stp');
                                     if (stp && /_s\d+x\d+/.test(stp)) u.searchParams.set('stp', stp.replace(/_s\d+x\d+/, '_s320x320'));
-                                    return `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
+                                    const proxied = `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
+                                    return `url("${proxied}")`;
                                   } catch {
                                     // Relative or invalid -> just use as-is (no proxy)
-                                    return src;
+                                    return `url("${src}")`;
                                   }
-                                })()}' )` as any,
+                                })() as any,
                               }}
                             />
                             <div style={{ display:'grid' }}>

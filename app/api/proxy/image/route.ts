@@ -60,17 +60,28 @@ export async function GET(req: Request) {
       } catch {}
     }
     if (!upstream.ok) {
-      // Return a 1x1 transparent PNG if all attempts fail
-      const transparentPng = Uint8Array.from([
-        137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,10,73,68,65,84,120,156,99,248,15,4,0,9,251,3,253,42,94,171,165,0,0,0,0,73,69,78,68,174,66,96,130
-      ]);
-      return new Response(transparentPng, {
+      // Return a visible neutral placeholder (SVG) if all attempts fail
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#232323"/>
+      <stop offset="100%" stop-color="#2c2c2c"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#g)"/>
+  <circle cx="32" cy="24" r="12" fill="#3a3a3a"/>
+  <rect x="12" y="40" width="40" height="16" rx="8" fill="#3a3a3a"/>
+  <circle cx="32" cy="24" r="9" fill="#4a4a4a"/>
+  <rect x="16" y="42" width="32" height="12" rx="6" fill="#4a4a4a"/>
+</svg>`;
+      return new Response(svg, {
         status: 200,
         headers: {
-          'Content-Type': 'image/png',
+          'Content-Type': 'image/svg+xml; charset=utf-8',
           'Cache-Control': 'public, max-age=60',
           'Access-Control-Allow-Origin': '*',
           'Cross-Origin-Resource-Policy': 'cross-origin',
+          'X-FBR-Proxy-Status': String(upstream.status),
         },
       });
     }
