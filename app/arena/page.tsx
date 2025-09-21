@@ -37,6 +37,7 @@ export default function ArenaPage() {
   const winnerModal = document.getElementById('winnerModal')!;
     const winnerTitle = document.getElementById('winnerTitle')!;
     const winnerAvatar = document.getElementById('winnerAvatar')! as HTMLDivElement;
+  const winnerUser = document.getElementById('winnerUser')! as HTMLDivElement;
     const replayBtn = document.getElementById('replayBtn')!;
     const closeWinnerBtn = document.getElementById('closeWinnerBtn')!;
 
@@ -81,16 +82,36 @@ export default function ArenaPage() {
       return new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image(); img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img); img.onerror = reject;
+        // Prefer higher-res IG CDN variants when possible
+        const upgradeIgUrl = (u: string) => {
+          try {
+            const parsed = new URL(u);
+            const host = parsed.hostname.toLowerCase();
+            if (host.includes('instagram') || host.includes('fbcdn.net')) {
+              const stp = parsed.searchParams.get('stp');
+              if (stp && /_s\d+x\d+/.test(stp)) {
+                parsed.searchParams.set('stp', stp.replace(/_s\d+x\d+/, '_s320x320'));
+                return parsed.toString();
+              }
+            }
+          } catch {}
+          return u;
+        };
+        const upgraded = upgradeIgUrl(url);
         // Route through proxy for remote URLs to avoid CDN restrictions
         try {
-          const u = new URL(url);
+          const u = new URL(upgraded);
           if (/^https?:/i.test(u.protocol)) {
-            img.src = `/api/proxy/image?url=${encodeURIComponent(url)}`;
+            if (u.pathname.startsWith('/api/proxy/image') || upgraded.includes('/api/proxy/image')) {
+              img.src = upgraded; // already proxied
+              return;
+            }
+            img.src = `/api/proxy/image?url=${encodeURIComponent(upgraded)}`;
           } else {
-            img.src = url;
+            img.src = upgraded;
           }
         } catch {
-          img.src = url;
+          img.src = upgraded;
         }
       });
     }
@@ -148,6 +169,22 @@ export default function ArenaPage() {
       winnerTitle.textContent = p.name || 'Winner';
       if ((p as any).img) { (winnerAvatar as any).style.backgroundImage = `url(${p.img.src})`; }
       else { (winnerAvatar as any).style.backgroundImage = 'none'; (winnerAvatar as any).style.background = 'linear-gradient(135deg,#242424,#3a3a3a)'; }
+      // Set username link if available
+      if (winnerUser) {
+        winnerUser.textContent = '';
+        const uname = (p as any).username;
+        if (uname) {
+          const a = document.createElement('a');
+          a.href = `https://www.instagram.com/${uname}/`;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = `@${uname}`;
+          a.style.color = 'inherit';
+          a.style.opacity = '0.85';
+          a.style.fontSize = '12px';
+          winnerUser.appendChild(a);
+        }
+      }
       winnerModal.classList.remove('hidden');
       winnerModal.setAttribute('aria-hidden','false');
       if (!savedThisWinner) { saveFightResult(); savedThisWinner = true; }
@@ -318,6 +355,7 @@ export default function ArenaPage() {
         <div className="modal-content">
           <div className="win-avatar" id="winnerAvatar" aria-hidden="true" />
           <h2 id="winnerTitle">Winner</h2>
+          <div id="winnerUser" style={{ marginTop: 4 }} />
           <div className="modal-actions">
             <button id="replayBtn">Replay</button>
             <button id="closeWinnerBtn">Close</button>

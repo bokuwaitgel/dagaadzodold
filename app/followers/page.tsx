@@ -40,7 +40,19 @@ export default function FollowersPage() {
                 backgroundSize:'cover',
                 backgroundPosition:'center',
                 borderRadius:9999,
-                backgroundImage: `url('${f.profile_pic_url ? `/api/proxy/image?url=${encodeURIComponent(f.profile_pic_url)}` : ''}')` as any,
+                backgroundImage: `url('${(() => {
+                  const src = f.profile_pic_url || '';
+                  if (!src) return '';
+                  if (src.startsWith('/api/proxy/image') || src.includes('/api/proxy/image')) return src;
+                  try {
+                    const u = new URL(src);
+                    const stp = u.searchParams.get('stp');
+                    if (stp && /_s\d+x\d+/.test(stp)) u.searchParams.set('stp', stp.replace(/_s\d+x\d+/, '_s320x320'));
+                    return `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
+                  } catch {
+                    return src;
+                  }
+                })()}' )` as any,
               }}
             />
             <div style={{ display:'grid' }}>
