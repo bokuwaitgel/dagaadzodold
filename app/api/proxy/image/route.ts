@@ -21,9 +21,24 @@ function isAllowed(urlStr: string) {
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const target = searchParams.get('url');
-    if (!target) return NextResponse.json({ error: 'Missing url' }, { status: 400 });
+    const thisUrl = new URL(req.url);
+    const { searchParams } = thisUrl;
+  const targetParam = searchParams.get('url');
+  if (!targetParam) return NextResponse.json({ error: 'Missing url' }, { status: 400 });
+  let target: string = targetParam;
+    // Unwrap nested proxy URLs like /api/proxy/image?url=<our-origin>/api/proxy/image?url=...
+    try {
+      let guard = 0;
+      while (target && guard < 4) {
+        const u: URL = new URL(target, thisUrl.origin); // support relative
+        if (u.pathname.replace(/\/$/, '') === '/api/proxy/image') {
+          const inner: string | null = u.searchParams.get('url');
+          if (inner && inner !== target) { target = inner; guard++; continue; }
+        }
+        break;
+      }
+    } catch {}
+    // Validate final target host
     if (!isAllowed(target)) return NextResponse.json({ error: 'Host not allowed' }, { status: 400 });
 
     const makeReq = (u: string) => fetch(u, {
@@ -35,11 +50,11 @@ export async function GET(req: Request) {
       },
     });
 
-    let upstream = await makeReq(target);
+  let upstream = await makeReq(target);
     // Fallback 1: try without query params
     if (!upstream.ok) {
       try {
-        const u = new URL(target);
+  const u = new URL(target);
         u.search = '';
         upstream = await makeReq(u.toString());
       } catch {}
