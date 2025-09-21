@@ -46,7 +46,7 @@ export default function ArenaPage() {
     async function saveFightResult() {
       try {
         const ranked = [...(state.people as any[])]
-          .map((p: any) => ({ name: p.name, imageSrc: p.img?.src || '', kills: p.kills|0, damageDealt: Math.round(p.damageDealt || 0), alive: !!p.alive }))
+          .map((p: any) => ({ name: p.name, imageSrc: p.img?.src || '', url: (p as any).profileUrl || '', username: (p as any).username || '', kills: p.kills|0, damageDealt: Math.round(p.damageDealt || 0), alive: !!p.alive }))
           .sort((a,b) => (b.kills - a.kills) || (b.damageDealt - a.damageDealt) || (a.name||'').localeCompare(b.name||''));
         const payload = {
           seed: (seedInput?.value || '').trim() || null,
@@ -80,7 +80,18 @@ export default function ArenaPage() {
     function loadImage(url: string) {
       return new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image(); img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img); img.onerror = reject; img.src = url;
+        img.onload = () => resolve(img); img.onerror = reject;
+        // Route through proxy for remote URLs to avoid CDN restrictions
+        try {
+          const u = new URL(url);
+          if (/^https?:/i.test(u.protocol)) {
+            img.src = `/api/proxy/image?url=${encodeURIComponent(url)}`;
+          } else {
+            img.src = url;
+          }
+        } catch {
+          img.src = url;
+        }
       });
     }
     function parseCSV(text: string) {
@@ -110,8 +121,13 @@ export default function ArenaPage() {
       const nums = values.filter((v: any) => v !== null);
       let minV: number | null = null, maxV: number | null = null;
       if (nums.length) { minV = Math.min(...nums); maxV = Math.max(...nums); }
-      state.people = records.map((r, i) => {
+    state.people = records.map((r, i) => {
         const p = createPerson(rand, i, r.name || `Follower ${i+1}`, imgs[i]);
+          // Attach Instagram profile URL if username provided
+          if (r.username) {
+      (p as any).profileUrl = `https://www.instagram.com/${r.username}/`;
+      (p as any).username = r.username;
+          }
         if (minV !== null && maxV !== null && minV !== maxV) {
           const val = values[i] == null ? (minV + maxV) / 2 : values[i];
           const t = (val - (minV as number)) / ((maxV as number) - (minV as number));
@@ -162,7 +178,20 @@ export default function ArenaPage() {
       let recs: any[] = [];
       try {
         if (file.name.toLowerCase().endsWith('.json')) {
-          const json = JSON.parse(text); if (Array.isArray(json)) recs = json.map((r: any,i:number)=>({ name: r.name || `Follower ${i+1}`, image: r.image || '', size: typeof r.size==='number'?r.size:undefined, followers: typeof r.followers==='number'?r.followers: (typeof r.count==='number'?r.count:undefined) }));
+          const json = JSON.parse(text);
+          if (Array.isArray(json)) {
+            recs = json.map((r: any, i: number) => {
+              const name = r.name || r.full_name || r.username || String(r.pk || r.id || `Follower ${i+1}`);
+              const image = r.image || r.profile_pic_url || '';
+              const username = r.username || undefined;
+              const followersVal = typeof r.follower_count === 'number' ? r.follower_count
+                : (typeof r.followers_count === 'number' ? r.followers_count
+                : (typeof r.followers === 'number' ? r.followers
+                : (typeof r.count === 'number' ? r.count : undefined)));
+              const sizeVal = typeof r.size === 'number' ? r.size : undefined;
+              return { name, image, username, size: sizeVal, followers: followersVal };
+            });
+          }
         } else { recs = parseCSV(text); }
       } catch (e: any) { alert('Failed to parse file: ' + e.message); return; }
       await buildPeopleFromRecords(recs);
@@ -186,7 +215,24 @@ export default function ArenaPage() {
       e.preventDefault(); const items = Array.from((e as DragEvent).dataTransfer?.files || []); if (!items.length) return;
       const jsonCsv = items.find(f => /\.(json|csv)$/i.test(f.name)); if (!jsonCsv) return;
       const text = await (jsonCsv as File).text(); let recs: any[] = [];
-      try { if (jsonCsv.name.toLowerCase().endsWith('.json')) { const arr = JSON.parse(text); if (Array.isArray(arr)) recs = arr.map((r:any,i:number)=>({ name: r.name || `Follower ${i+1}`, image: r.image || '', size: typeof r.size==='number'?r.size:undefined, followers: typeof r.followers==='number'?r.followers: (typeof r.count==='number'?r.count:undefined) })); } else { recs = parseCSV(text); } }
+      try {
+        if (jsonCsv.name.toLowerCase().endsWith('.json')) {
+          const arr = JSON.parse(text);
+          if (Array.isArray(arr)) {
+            recs = arr.map((r: any, i: number) => {
+              const name = r.name || r.full_name || r.username || String(r.pk || r.id || `Follower ${i+1}`);
+              const image = r.image || r.profile_pic_url || '';
+              const username = r.username || undefined;
+              const followersVal = typeof r.follower_count === 'number' ? r.follower_count
+                : (typeof r.followers_count === 'number' ? r.followers_count
+                : (typeof r.followers === 'number' ? r.followers
+                : (typeof r.count === 'number' ? r.count : undefined)));
+              const sizeVal = typeof r.size === 'number' ? r.size : undefined;
+              return { name, image, username, size: sizeVal, followers: followersVal };
+            });
+          }
+        } else { recs = parseCSV(text); }
+      }
       catch(e: any) { alert('Failed to parse: ' + e.message); return; }
       await buildPeopleFromRecords(recs);
     });

@@ -9,7 +9,7 @@ type Fight = {
   winner: string | null;
   count: number;
   user?: string | null;
-  leaderboard: Array<{ name: string; imageSrc?: string; kills: number; damageDealt: number; alive?: boolean }>;
+  leaderboard: Array<{ name: string; imageSrc?: string; url?: string; username?: string; kills: number; damageDealt: number; alive?: boolean }>;
 };
 
 export default function HomePage() {
@@ -43,7 +43,7 @@ export default function HomePage() {
         winner: it.winner,
         count: it.count,
         user: it.user,
-        leaderboard: (it.leaderboard || []).map((p: any) => ({ name: p.name, imageSrc: p.imageSrc, kills: p.kills, damageDealt: p.damageDealt, alive: p.alive })),
+  leaderboard: (it.leaderboard || []).map((p: any) => ({ name: p.name, imageSrc: p.imageSrc, url: p.url, username: p.username, kills: p.kills, damageDealt: p.damageDealt, alive: p.alive })),
       })) as Fight[];
     } catch {
       try { return JSON.parse(localStorage.getItem('fbr.fights') || '[]'); } catch { return []; }
@@ -164,7 +164,24 @@ export default function HomePage() {
                       return rows.slice(0, limit).map((p, i) => (
                         <tr key={p.name + i} className={p.alive ? '' : 'row-dead'}>
                           <td>{i+1}</td>
-                          <td><span className="avatar" style={{ backgroundImage: `url('${p.imageSrc || ''}')` as any }} />{p.name}</td>
+                          <td>
+                            <span
+                              className="avatar"
+                              style={{
+                                backgroundImage: `url('${p.imageSrc ? `/api/proxy/image?url=${encodeURIComponent(p.imageSrc)}` : ''}')` as any,
+                              }}
+                            />
+                            <div style={{ display:'grid' }}>
+                              {p.url ? (
+                                <a href={p.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{p.name}</a>
+                              ) : (
+                                p.name
+                              )}
+                              {p.username ? (
+                                <a href={`https://www.instagram.com/${p.username}/`} target="_blank" rel="noopener noreferrer" style={{ opacity:.8, color:'inherit', fontSize:12 }}>@{p.username}</a>
+                              ) : null}
+                            </div>
+                          </td>
                           <td>{p.kills}</td>
                           <td>{p.damageDealt}</td>
                         </tr>
