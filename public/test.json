@@ -1,0 +1,6 @@
+[
+  { "name": "Alice", "image": "https://example.com/a.jpg" },
+  { "name": "Bob", "image": "/path/to/b.png" },
+  { "name": "Alice2", "image": "https://example.com/a.jpg" },
+  { "name": "Bob2", "image": "/path/to/b.png" }
+]

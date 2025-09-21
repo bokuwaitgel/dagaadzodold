@@ -1,0 +1,19 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Fight {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  seed       String?
+  ticks      Int
+  winner     String?
+  count      Int
+  user       String?
+  leaderboard Json
+}

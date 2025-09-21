@@ -1,0 +1,131 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: #0b0b0b; color: #eaeaea; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+#stageContainer { position: fixed; top: 72px; left: 0; right: 0; bottom: 0; display: grid; place-items: center; padding: 6px; }
+.stage-inner { position: relative; display: inline-block; }
+#stage { display: block; width: 80vw; height: calc(80vh - 96px); background: #0b0b0b; border: 5px solid #666; border-radius: 10px; }
+#ui { position: fixed; top: 0; left: 0; right: 0; z-index: 10; }
+.hud { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
+#aliveBadge { background: rgba(32,32,32,.8); border: 1px solid #333; padding: 6px 10px; border-radius: 8px; font-weight: 600; }
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.controls button, .controls input[type="file"] { background: #1e1e1e; color: #eee; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.controls button:hover { background: #2b2b2b; }
+.controls .group { display: inline-flex; align-items: center; gap: 6px; background: #111; border: 1px solid #222; border-radius: 8px; padding: 6px 10px; }
+.controls .group.file { padding: 4px 8px; }
+#speedRange { width: 160px; }
+
+/* Health bars */
+.bar-bg { fill: #2a2a2a; }
+.bar-hp { fill: #f25f5c; }
+
+/* Drag & drop overlay (hidden by default) */
+#dropOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); border: 2px dashed #666; display: none; place-items: center; color: #ddd; font-size: 22px; z-index: 999; }
+#dropOverlay.show { display: grid; }
+
+/* Winner modal */
+.modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,0.6); z-index: 1000; }
+.modal:not(.hidden) { display: grid; }
+.modal .modal-content { background: #121212; border: 1px solid #2a2a2a; border-radius: 14px; padding: 22px 24px; width: min(92vw, 420px); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.modal h2 { margin: 12px 0 6px; font-size: 22px; }
+.modal .modal-actions { display: flex; gap: 12px; justify-content: center; margin-top: 14px; }
+.modal .modal-actions button { background: #1e1e1e; color: #eee; border: 1px solid #333; border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.modal .modal-actions button:hover { background: #2b2b2b; }
+.win-avatar { width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; background: #222; border: 2px solid #444; background-size: cover; background-position: center; }
+
+/* Winner modal animations */
+@keyframes modalBackdropIn {
+	from { background: rgba(0,0,0,0); }
+	to { background: rgba(0,0,0,0.6); }
+}
+@keyframes popIn {
+	0% { transform: translateY(12px) scale(0.96); opacity: 0; }
+	60% { transform: translateY(-2px) scale(1.02); opacity: 1; }
+	100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes fadeUp {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+@keyframes avatarPulse {
+	0% { box-shadow: 0 0 0 0 rgba(255,209,102,0.55); }
+	70% { box-shadow: 0 0 0 16px rgba(255,209,102,0); }
+	100% { box-shadow: 0 0 0 0 rgba(255,209,102,0); }
+}
+@keyframes shineSweep {
+	0% { transform: translateX(-160%) rotate(20deg); opacity: 0; }
+	30% { opacity: 0.9; }
+	100% { transform: translateX(160%) rotate(20deg); opacity: 0; }
+}
+
+.modal:not(.hidden) {
+	animation: modalBackdropIn 300ms ease-out both;
+}
+.modal:not(.hidden) .modal-content {
+	animation: popIn 380ms cubic-bezier(.2,.8,.2,1) both;
+}
+.modal:not(.hidden) .modal-actions {
+	animation: fadeUp 420ms ease-out 140ms both;
+}
+.win-avatar { position: relative; overflow: hidden; }
+.modal:not(.hidden) .win-avatar::after {
+	content: "";
+	position: absolute;
+	inset: -6px;
+	border-radius: 9999px;
+	animation: avatarPulse 1600ms ease-out 200ms infinite;
+	pointer-events: none;
+}
+.modal:not(.hidden) .win-avatar::before {
+	content: "";
+	position: absolute;
+	inset: -2px;
+	border-radius: 9999px;
+	background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%);
+	filter: blur(0.2px);
+	transform: translateX(-160%) rotate(20deg);
+	animation: shineSweep 1200ms ease-out 400ms both;
+}
+
+/* In-arena leaderboard removed */
+
+/* Utility buttons (shared look on other pages) */
+button { font: inherit; }
+
+/* Saved fights page tweaks */
+body.saved { padding-top: 72px; }
+.page { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+header.page-header { position: fixed; top: 0; left: 0; right: 0; background: #0b0b0b; border-bottom: 1px solid #222; z-index: 10; }
+header.page-header .inner { display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; }
+.brand .logo { display:inline-block; width: 24px; height: 24px; opacity: 0.95; }
+.brand .logo.rounded { border-radius: 9999px; object-fit: cover; }
+.fights { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.fight-card { background: #121212; border: 1px solid #2a2a2a; border-radius: 12px; overflow: clip; }
+.fight-head { display:flex; align-items:center; justify-content:space-between; padding: 10px 12px; border-bottom: 1px solid #222; }
+.fight-body { padding: 10px 12px; }
+.meta { font-size: 12px; color: #aaa; display:flex; gap: 10px; align-items:center; }
+.winner { font-weight: 700; }
+.lb-table { width: 100%; border-collapse: collapse; }
+.lb-table th, .lb-table td { text-align: left; padding: 8px 6px; border-bottom: 1px dashed #2a2a2a; }
+.avatar { width: 50px; height: 50px; border-radius: 50%; background: #222; background-size: cover; background-position: center; border: 1px solid #333; display:inline-block; vertical-align: middle; margin-right: 8px; }
+.row-dead { opacity: 0.55; }
+.controls button { background: #1e1e1e; color: #eee; border: 1px solid #333; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+
+/* Right-side alive badge */
+.alive-side {
+	position: absolute;
+	left: 12px;
+    top: 5%;
+	transform: translateY(-50%);
+	background: rgba(18,18,18,0.9);
+	border: 1px solid #2a2a2a;
+	color: #eaeaea;
+	padding: 10px 12px;
+	border-radius: 12px;
+	font-weight: 600;
+	z-index: 2;
+	box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation: none !important; transition: none !important; }
+}
