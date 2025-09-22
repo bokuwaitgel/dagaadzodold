@@ -46,9 +46,35 @@ export default function ArenaPage() {
     }
     async function saveFightResult() {
       try {
+        // Build placement from elimination order + winner
+        const N = (state.people as any[]).length;
+        const elim = (state.sim.log || []).filter((e: any) => e?.type === 'eliminate');
+        elim.sort((a: any, b: any) => (a.t ?? 0) - (b.t ?? 0));
+        const placementMap: Record<string, number> = {};
+        elim.forEach((e: any, idx: number) => {
+          const name = e?.name; if (!name) return;
+          // First eliminated gets Nth place, last eliminated gets 2nd place
+          placementMap[name] = Math.max(2, N - idx);
+        });
+        const winName = (state.sim.winner as any)?.name;
+        if (winName) placementMap[winName] = 1;
+
         const ranked = [...(state.people as any[])]
-          .map((p: any) => ({ name: p.name, imageSrc: p.img?.src || '', url: (p as any).profileUrl || '', username: (p as any).username || '', kills: p.kills|0, damageDealt: Math.round(p.damageDealt || 0), alive: !!p.alive }))
-          .sort((a,b) => (b.kills - a.kills) || (b.damageDealt - a.damageDealt) || (a.name||'').localeCompare(b.name||''));
+          .map((p: any) => ({
+            name: p.name,
+            imageSrc: p.img?.src || '',
+            url: (p as any).profileUrl || '',
+            username: (p as any).username || '',
+            kills: p.kills|0,
+            damageDealt: Math.round(p.damageDealt || 0),
+            alive: !!p.alive,
+            placement: placementMap[p.name] ?? null,
+          }))
+          .sort((a,b) => {
+            const pa = a.placement ?? 9999, pb = b.placement ?? 9999;
+            if (pa !== pb) return pa - pb;
+            return (b.kills - a.kills) || (b.damageDealt - a.damageDealt) || (a.name||'').localeCompare(b.name||'');
+          });
         const payload = {
           seed: (seedInput?.value || '').trim() || null,
           ticks: state.sim.ticks,
@@ -78,43 +104,49 @@ export default function ArenaPage() {
     if (aliveSideBadge) aliveSideBadge.textContent = txt;
   }
 
-    function loadImage(url: string) {
-      return new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image(); img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img); img.onerror = reject;
-        // Prefer higher-res IG CDN variants when possible
-        const upgradeIgUrl = (u: string) => {
-          try {
-            const parsed = new URL(u);
-            const host = parsed.hostname.toLowerCase();
-            if (host.includes('instagram') || host.includes('fbcdn.net')) {
-              const stp = parsed.searchParams.get('stp');
-              if (stp && /_s\d+x\d+/.test(stp)) {
-                parsed.searchParams.set('stp', stp.replace(/_s\d+x\d+/, '_s320x320'));
-                return parsed.toString();
-              }
-            }
-          } catch {}
-          return u;
-        };
-        const upgraded = upgradeIgUrl(url);
-        // Route through proxy for remote URLs to avoid CDN restrictions
-        try {
-          const u = new URL(upgraded);
-          if (/^https?:/i.test(u.protocol)) {
-            if (u.pathname.startsWith('/api/proxy/image') || upgraded.includes('/api/proxy/image')) {
-              img.src = upgraded; // already proxied
-              return;
-            }
-            img.src = `/api/proxy/image?url=${encodeURIComponent(upgraded)}`;
-          } else {
-            img.src = upgraded;
-          }
-        } catch {
-          img.src = upgraded;
-        }
+  function loadImage(url: string) {
+    return new Promise<HTMLImageElement>(async (resolve) => {
+      // A tiny transparent fallback so p.img is never null
+      const transparentData = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
+      const loadOne = (src: string, timeoutMs = 8000) => new Promise<HTMLImageElement>((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        try { (img as any).referrerPolicy = 'no-referrer'; } catch {}
+        let timer: any = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, timeoutMs);
+        function cleanup() { clearTimeout(timer); img.onload = null!; (img as any).onerror = null; }
+        img.onload = async () => { try { if ((img as any).decode) await (img as any).decode(); } catch {} cleanup(); res(img); };
+        (img as any).onerror = () => { cleanup(); rej(new Error('load error')); };
+        img.src = src;
       });
-    }
+
+  // Keep original URL; altering IG stp can cause 403s
+  const upgradeIgUrl = (u: string) => u;
+
+      const upgraded = upgradeIgUrl(url);
+      const candidates: string[] = [];
+      try {
+        const u = new URL(upgraded);
+        if (/^https?:/i.test(u.protocol)) {
+          candidates.push(`/api/proxy/image?url=${encodeURIComponent(u.toString())}`);
+          candidates.push(u.toString());
+        } else {
+          candidates.push(upgraded);
+        }
+      } catch {
+        candidates.push(upgraded);
+      }
+
+      for (const src of candidates) {
+        try { const im = await loadOne(src); return resolve(im); } catch {}
+      }
+      // Final fallback: transparent pixel
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.src = transparentData;
+      resolve(im);
+    });
+  }
     function parseCSV(text: string) {
       const lines = text.split(/\r?\n/).filter(Boolean);
       if (!lines.length) return [] as any[];

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 type Fight = {
   id: string;
@@ -9,7 +10,7 @@ type Fight = {
   winner: string | null;
   count: number;
   user?: string | null;
-  leaderboard: Array<{ name: string; imageSrc?: string; url?: string; username?: string; kills: number; damageDealt: number; alive?: boolean }>;
+  leaderboard: Array<{ name: string; imageSrc?: string; url?: string; username?: string; kills: number; damageDealt: number; alive?: boolean; placement?: number; place?: number; idx?: number }>;
 };
 
 export default function HomePage() {
@@ -18,8 +19,11 @@ export default function HomePage() {
   const [dateOptions, setDateOptions] = useState<string[]>([]);
   const [playerQuery, setPlayerQuery] = useState<string>('');
   const [topN, setTopN] = useState<string>('all'); // 'all' | '5' | '10'
-  const [sortState, setSortState] = useState<Record<string, { key: 'kills' | 'damage' | 'name'; dir: 'asc' | 'desc' }>>({});
+  const [minKills, setMinKills] = useState<string>('');
+  const [minDamage, setMinDamage] = useState<string>('');
+  const [sortState, setSortState] = useState<Record<string, { key: 'kills' | 'damage' | 'name' | 'place'; dir: 'asc' | 'desc' }>>({});
   const authLinkRef = useRef<HTMLAnchorElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     render();
@@ -32,7 +36,10 @@ export default function HomePage() {
   async function fetchFights(): Promise<Fight[]> {
     try {
       const res = await fetch('/api/fights', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`API ${res.status}: ${txt || 'Failed to load fights'}`);
+      }
       const items = await res.json();
       // Map DB shape to UI type
       return items.map((it: any) => ({
@@ -43,10 +50,12 @@ export default function HomePage() {
         winner: it.winner,
         count: it.count,
         user: it.user,
-  leaderboard: (it.leaderboard || []).map((p: any) => ({ name: p.name, imageSrc: p.imageSrc, url: p.url, username: p.username, kills: p.kills, damageDealt: p.damageDealt, alive: p.alive })),
+        leaderboard: (it.leaderboard || []).map((p: any) => ({ name: p.name, imageSrc: p.imageSrc, url: p.url, username: p.username, kills: p.kills, damageDealt: p.damageDealt, alive: p.alive , placement: p.placement, place: p.place, idx: p.idx })),
       })) as Fight[];
-    } catch {
-      try { return JSON.parse(localStorage.getItem('fbr.fights') || '[]'); } catch { return []; }
+    } catch (e: any) {
+      const local: Fight[] = (() => { try { return JSON.parse(localStorage.getItem('fbr.fights') || '[]'); } catch { return []; } })();
+      if (!local.length) setError(e?.message || 'Failed to load leaderboard.');
+      return local;
     }
   }
   function saveFights(arr: Fight[]) { localStorage.setItem('fbr.fights', JSON.stringify(arr)); }
@@ -89,7 +98,7 @@ export default function HomePage() {
       <header className="page-header">
         <div className="inner">
                 <div className="brand" style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <img src="/logo.jpg" alt="Logo" className="logo rounded" width={24} height={24} />
+                  <Image src="/logo.jpg" alt="Logo" className="logo rounded" width={24} height={24} />
             <strong>Fights Leaderboard</strong>
           </div>
           <div className="controls">
@@ -112,19 +121,79 @@ export default function HomePage() {
                 <option value="10">Top 10</option>
               </select>
             </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Kills ≥
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minKills}
+                onChange={e=>setMinKills(e.target.value)}
+                style={{ width: 80 }}
+              />
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Damage ≥
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minDamage}
+                onChange={e=>setMinDamage(e.target.value)}
+                style={{ width: 100 }}
+              />
+            </label>
             {/* <a href="/arena" style={{ textDecoration: 'none' }}><button>Back to Arena</button></a>
             <a ref={authLinkRef} href="/login" style={{ textDecoration: 'none' }}><button>Login</button></a> */}
           </div>
         </div>
       </header>
       <main className="page">
+        {error ? (
+          <div style={{ background:'#231f20', color:'#ffb3b3', border:'1px solid #3a2a2a', padding:'10px 12px', borderRadius:8, margin:'12px 0' }}>
+            {error} – open Arena and finish a fight to save results locally, or configure DATABASE_URL for server storage.
+          </div>
+        ) : null}
         <section className="fights">
           {!fights.length && (<div style={{ opacity: .7, padding: 16 }}>No saved fights yet. Finish a fight to save it automatically.</div>)}
           {fights.map((f) => (
             <article className="fight-card" key={f.id} data-id={f.id}>
               <div className="fight-head">
-                <div>
-                  <span className="winner">{f.winner || '—'}</span>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  {(() => {
+                    const w = (f.leaderboard || []).find(p => p.name === f.winner);
+                    const raw = w?.imageSrc || '';
+                    if (!raw) return null;
+                    let src = raw;
+                    try {
+                      const u = new URL(raw);
+                      const host = u.hostname.toLowerCase();
+                      if (host.includes('instagram') || host.endsWith('fbcdn.net') || host.includes('cdninstagram.com')) {
+                        src = `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
+                      }
+                    } catch {}
+                    return (
+                      <img
+                        src={src}
+                        alt={f.winner || 'winner'}
+                        width={28}
+                        height={28}
+                        className="avatar"
+                        style={{ width: 28, height: 28, marginRight: 0 }}
+                        referrerPolicy="no-referrer"
+                      />
+                    );
+                  })()}
+                  {(() => {
+                    const w = (f.leaderboard || []).find(p => p.name === f.winner);
+                    const link = w?.url || (w?.username ? `https://www.instagram.com/${w.username}/` : '');
+                    if (link) {
+                      return (
+                        <a href={link} target="_blank" rel="noopener noreferrer" className="winner" style={{ color:'inherit', textDecoration:'none' }}>
+                          {f.winner || '—'}
+                        </a>
+                      );
+                    }
+                    return (<span className="winner">{f.winner || '—'}</span>);
+                  })()}
                   <span className="meta">• {fmtTime(f.createdAt)} • {f.count} fighters{f.seed ? ` • seed: ${f.seed}` : ''}</span>
                 </div>
                 <div className="controls">
@@ -135,7 +204,12 @@ export default function HomePage() {
                 <table className="lb-table">
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th style={{cursor:'pointer'}} onClick={()=>{
+                        setSortState(s=>{ const cur = s[f.id]||{key:'kills',dir:'desc'}; const key:'place'='place'; const dir = cur.key===key && cur.dir==='asc' ? 'desc' : 'asc'; return {...s, [f.id]: {key, dir}}; });
+                      }}>Place {sortState[f.id]?.key==='place' ? (sortState[f.id]?.dir==='asc'?'▲':'▼') : ''}</th>
+                      {/* <th>Player</th>
+                      <th>Kills</th>
+                      <th>Damage</th> */}
                       <th style={{cursor:'pointer'}} onClick={()=>{
                         setSortState(s=>{ const cur = s[f.id]||{key:'kills',dir:'desc'}; const key:'name'='name'; const dir = cur.key===key && cur.dir==='desc' ? 'asc' : 'desc'; return {...s, [f.id]: {key, dir}}; });
                       }}>Player {sortState[f.id]?.key==='name' ? (sortState[f.id]?.dir==='asc'?'▲':'▼') : ''}</th>
@@ -151,41 +225,73 @@ export default function HomePage() {
                     {(() => {
                       // derive rows with search, sort, and optional Top N
                       const q = playerQuery.trim().toLowerCase();
+                      const mk = Number.isFinite(Number(minKills)) && minKills !== '' ? Number(minKills) : null;
+                      const md = Number.isFinite(Number(minDamage)) && minDamage !== '' ? Number(minDamage) : null;
                       const rows = (f.leaderboard || [])
-                        .filter(p => !q || (p.name || '').toLowerCase().includes(q));
+                        .filter(p => !q || (p.name || '').toLowerCase().includes(q))
+                        .filter(p => (mk === null ? true : (p.kills || 0) >= mk))
+                        .filter(p => (md === null ? true : (p.damageDealt || 0) >= md));
                       const sort = sortState[f.id] || { key: 'kills' as const, dir: 'desc' as const };
                       rows.sort((a,b) => {
-                        if (sort.key === 'name') return sort.dir==='asc' ? (a.name||'').localeCompare(b.name||'') : (b.name||'').localeCompare(a.name||'');
-                        if (sort.key === 'kills') return sort.dir==='asc' ? (a.kills - b.kills) : (b.kills - a.kills);
-                        // damage
-                        return sort.dir==='asc' ? (a.damageDealt - b.damageDealt) : (b.damageDealt - a.damageDealt);
+                        const dir = sort.dir === 'asc' ? 1 : -1;
+                        const pa = (a as any).placement ?? (a as any).place ?? 9999; const pb = (b as any).placement ?? (b as any).place ?? 9999;
+                        if (sort.key === 'kills') {
+                          if ((a.kills||0) !== (b.kills||0)) return dir * ((a.kills||0) - (b.kills||0));
+                        } else if (sort.key === 'damage') {
+                          if ((a.damageDealt||0) !== (b.damageDealt||0)) return dir * ((a.damageDealt||0) - (b.damageDealt||0));
+                        } else if (sort.key === 'name') {
+                          const cmp = (a.name||'').localeCompare(b.name||'');
+                          if (cmp) return dir * cmp;
+                        } else if (sort.key === 'place') {
+                          if (pa !== pb) return dir * (pa - pb);
+                        }
+                        // fallback by placement/place first (asc)
+                        if (pa !== pb) return pa - pb;
+                        // secondary tie-breakers: kills desc, then damage desc, then name asc
+                        const k = (b.kills||0) - (a.kills||0); if (k) return k;
+                        const d = (b.damageDealt||0) - (a.damageDealt||0); if (d) return d;
+                        return (a.name||'').localeCompare(b.name||'');
                       });
                       const limit = topN === 'all' ? rows.length : Math.min(rows.length, parseInt(topN, 10));
                       return rows.slice(0, limit).map((p, i) => (
                         <tr key={p.name + i} className={p.alive ? '' : 'row-dead'}>
-                          <td>{i+1}</td>
+                          <td>{(p as any).place ?? (p as any).placement ?? (i+1)}</td>
                           <td>
-                            <span
-                              className="avatar"
-                              style={{
-                                backgroundImage: (() => {
-                                  const src = p.imageSrc || '';
-                                  if (!src) return '';
-                                  // If already proxied, do not wrap again
-                                  if (src.startsWith('/api/proxy/image') || src.includes('/api/proxy/image')) return `url("${src}")`;
-                                  try {
-                                    const u = new URL(src);
-                                    const stp = u.searchParams.get('stp');
-                                    if (stp && /_s\d+x\d+/.test(stp)) u.searchParams.set('stp', stp.replace(/_s\d+x\d+/, '_s320x320'));
-                                    const proxied = `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
-                                    return `url("${proxied}")`;
-                                  } catch {
-                                    // Relative or invalid -> just use as-is (no proxy)
-                                    return `url("${src}")`;
-                                  }
-                                })() as any,
-                              }}
-                            />
+                            {(() => {
+                              const raw = p.imageSrc || '';
+                              if (!raw) return <span className="avatar" />;
+                              let src = raw;
+                              try {
+                                const u = new URL(raw);
+                                const host = u.hostname.toLowerCase();
+                                if (host.includes('instagram') || host.endsWith('fbcdn.net') || host.includes('cdninstagram.com')) {
+                                  src = `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
+                                }
+                              } catch {}
+                              if (src.startsWith('/api/proxy/image') || src.includes('/api/proxy/image')) {
+                                return (
+                                  <img
+                                    src={src}
+                                    alt={p.name}
+                                    width={50}
+                                    height={50}
+                                    className="avatar"
+                                    style={{ borderRadius: '50%', objectFit: 'cover', border: '1px solid #333', marginRight: 8 }}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                );
+                              }
+                              return (
+                                <Image
+                                  src={src}
+                                  alt={p.name}
+                                  width={50}
+                                  height={50}
+                                  className="avatar"
+                                  style={{ borderRadius: '50%', objectFit: 'cover', border: '1px solid #333', marginRight: 8 }}
+                                />
+                              );
+                            })()}
                             <div style={{ display:'grid' }}>
                               {p.url ? (
                                 <a href={p.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{p.name}</a>
