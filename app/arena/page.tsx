@@ -323,7 +323,7 @@ export default function ArenaPage() {
 
     // Loop
     renderer.resize();
-    window.addEventListener('resize', () => { renderer.resize(); layoutPeople(rand, state.people, canvas.width, canvas.height); });
+  window.addEventListener('resize', () => { renderer.resize(); layoutPeople(rand, state.people, canvas.width, canvas.height); });
     const N = 59;
     (async () => {
       const recs = Array.from({length:N}, (_,i)=>({ name:`Follower ${i+1}`, image:`https://picsum.photos/seed/fbr0-${i}/128` }));
