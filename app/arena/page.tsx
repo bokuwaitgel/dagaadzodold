@@ -38,7 +38,8 @@ export default function ArenaPage() {
     const winnerTitle = document.getElementById('winnerTitle')!;
     const winnerAvatar = document.getElementById('winnerAvatar')! as HTMLDivElement;
   const winnerUser = document.getElementById('winnerUser')! as HTMLDivElement;
-    const replayBtn = document.getElementById('replayBtn')!;
+  const replayBtn = document.getElementById('replayBtn')!;
+  const approveBtn = document.getElementById('approveBtn')!;
     const closeWinnerBtn = document.getElementById('closeWinnerBtn')!;
 
     function getAuth() {
@@ -217,9 +218,10 @@ export default function ArenaPage() {
           winnerUser.appendChild(a);
         }
       }
-      winnerModal.classList.remove('hidden');
-      winnerModal.setAttribute('aria-hidden','false');
-      if (!savedThisWinner) { saveFightResult(); savedThisWinner = true; }
+  winnerModal.classList.remove('hidden');
+  winnerModal.setAttribute('aria-hidden','false');
+  // manual approval required to save
+  if (approveBtn) { approveBtn.removeAttribute('disabled'); approveBtn.textContent = 'Approve & Save'; }
     }
     function hideWinner() { winnerModal.classList.add('hidden'); winnerModal.setAttribute('aria-hidden','true'); }
 
@@ -267,6 +269,19 @@ export default function ArenaPage() {
     });
 
     replayBtn?.addEventListener('click', () => { hideWinner(); resetAll(); state.sim.running = true; updateHUD(); });
+    approveBtn?.addEventListener('click', async () => {
+      if (savedThisWinner) return;
+      try {
+        savedThisWinner = true;
+        if (approveBtn) { approveBtn.textContent = 'Saving...'; (approveBtn as any).disabled = true; }
+        await saveFightResult();
+        if (approveBtn) { approveBtn.textContent = 'Saved'; }
+      } catch (e) {
+        console.error(e);
+        savedThisWinner = false;
+        if (approveBtn) { approveBtn.textContent = 'Approve & Save'; (approveBtn as any).disabled = false; }
+      }
+    });
     closeWinnerBtn?.addEventListener('click', () => hideWinner());
     downloadLogBtn?.addEventListener('click', () => {
       const payload = { generatedAt: new Date().toISOString(), ticks: state.sim.ticks, winner: state.sim.winner?.name || null, events: state.sim.log };
@@ -344,6 +359,7 @@ export default function ArenaPage() {
             <button id="startBtn">Start</button>
             <button id="pauseBtn">Pause</button>
             <button id="resetBtn">Reset</button>
+            <button id="approveBtn">Approve &amp; Save</button>
             <label className="group">
               Speed
               <input id="speedRange" type="range" min={0.2} max={10} step={0.1} defaultValue={2 as any} />
