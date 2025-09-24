@@ -185,7 +185,8 @@ export default function ArenaPage() {
         if (minV !== null && maxV !== null && minV !== maxV) {
           const val = values[i] == null ? (minV + maxV) / 2 : values[i];
           const t = (val - (minV as number)) / ((maxV as number) - (minV as number));
-          p.scale = 0.8 + t * 0.6;
+          // Softer visual scaling so avatars stay smaller overall
+          p.scale = 0.7 + t * 0.4;
         } else { p.scale = 1; }
         return p;
       });
