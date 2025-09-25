@@ -19,6 +19,19 @@ function isAllowed(urlStr: string) {
   }
 }
 
+export async function OPTIONS(req: Request) {
+  // CORS preflight
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Accept',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
 export async function GET(req: Request) {
   try {
     const thisUrl = new URL(req.url);
@@ -86,16 +99,20 @@ export async function GET(req: Request) {
       });
     }
     const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    const etag = upstream.headers.get('etag') || undefined;
+    const lastMod = upstream.headers.get('last-modified') || undefined;
     const buf = await upstream.arrayBuffer();
-    return new Response(buf, {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
-        'Cross-Origin-Resource-Policy': 'cross-origin',
-      },
-    });
+    const headers: Record<string,string> = {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Accept',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    };
+    if (etag) headers['ETag'] = etag;
+    if (lastMod) headers['Last-Modified'] = lastMod;
+    return new Response(buf, { status: 200, headers });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

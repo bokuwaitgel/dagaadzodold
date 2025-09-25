@@ -129,17 +129,21 @@ export default function ArenaPage() {
       try {
         const u = new URL(upgraded);
         if (/^https?:/i.test(u.protocol)) {
-          candidates.push(`/api/proxy/image?url=${encodeURIComponent(u.toString())}`);
+          const proxied = `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
+          candidates.push(proxied);
+          // Delay raw URL attempt until after explicit proxy try
           candidates.push(u.toString());
         } else {
           candidates.push(upgraded);
         }
-      } catch {
-        candidates.push(upgraded);
-      }
+      } catch { candidates.push(upgraded); }
 
-      for (const src of candidates) {
-        try { const im = await loadOne(src); return resolve(im); } catch {}
+      for (let i=0;i<candidates.length;i++) {
+        const src = candidates[i];
+        try { const im = await loadOne(src); return resolve(im); } catch (e) {
+          // If proxy failed with likely CORS, continue to next candidate
+          continue;
+        }
       }
       // Final fallback: transparent pixel
       const im = new Image();
