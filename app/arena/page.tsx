@@ -233,7 +233,7 @@ export default function ArenaPage() {
     startBtn.addEventListener('click', () => { state.sim.running = true; });
     pauseBtn.addEventListener('click', () => { state.sim.running = false; });
     function resetAll() {
-  state.people.forEach((p: any) => { p.hp=100; p.alive=true; p.kills=0; p.damageDealt=0; });
+  state.people.forEach((p: any) => { p.hp=p.maxHp||100; p.alive=true; p.kills=0; p.damageDealt=0; });
       state.sim.ticks = 0; state.sim.winner=null; state.sim.initialCount = state.people.length; state.sim.timeSec = 0; savedThisWinner = false; updateHUD();
     }
     resetBtn.addEventListener('click', resetAll);

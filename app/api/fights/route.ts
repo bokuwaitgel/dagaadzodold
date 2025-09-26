@@ -8,7 +8,13 @@ export async function GET() {
     // Normalize leaderboard order by placement for consumers
     const normalized = fights.map((f: any) => {
       const lb = Array.isArray(f.leaderboard) ? [...f.leaderboard] : [];
-      let arr = lb.map((p) => ({ ...p, placement: typeof (p as any)?.placement === 'number' ? (p as any).placement : null }));
+      // Dedupe by name+username combination (first occurrence wins)
+      const seen = new Set<string>();
+      const deduped = lb.filter((p: any) => {
+        const key = `${(p?.name||'').toLowerCase()}::${(p?.username||'').toLowerCase()}`;
+        if (seen.has(key)) return false; seen.add(key); return true;
+      });
+      let arr = deduped.map((p) => ({ ...p, placement: typeof (p as any)?.placement === 'number' ? (p as any).placement : null }));
       const anyPlacement = arr.some((p) => typeof (p as any).placement === 'number');
       if (anyPlacement) {
         arr.sort((a: any, b: any) => {
@@ -41,6 +47,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     // Normalize leaderboard by placement before saving
     let leaderboard: any[] = Array.isArray(body.leaderboard) ? [...body.leaderboard] : [];
+    // Dedupe by name+username
+    const seen = new Set<string>();
+    leaderboard = leaderboard.filter((p: any) => {
+      const key = `${(p?.name||'').toLowerCase()}::${(p?.username||'').toLowerCase()}`;
+      if (seen.has(key)) return false; seen.add(key); return true;
+    });
     const winnerName: string | null = body.winner ?? null;
     // Ensure numeric placement where present
     leaderboard = leaderboard.map((p) => ({ ...p, placement: typeof p?.placement === 'number' ? p.placement : null }));

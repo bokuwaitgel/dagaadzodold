@@ -32,38 +32,16 @@ html, body { height: 100%; margin: 0; background: #0b0b0b; color: #eaeaea; font-
 .win-avatar { width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; background: #222; border: 2px solid #444; background-size: cover; background-position: center; }
 
 /* Winner modal animations */
-@keyframes modalBackdropIn {
-	from { background: rgba(0,0,0,0); }
-	to { background: rgba(0,0,0,0.6); }
-}
-@keyframes popIn {
-	0% { transform: translateY(12px) scale(0.96); opacity: 0; }
-	60% { transform: translateY(-2px) scale(1.02); opacity: 1; }
-	100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-@keyframes fadeUp {
-	from { opacity: 0; transform: translateY(8px); }
-	to { opacity: 1; transform: translateY(0); }
-}
-@keyframes avatarPulse {
-	0% { box-shadow: 0 0 0 0 rgba(255,209,102,0.55); }
-	70% { box-shadow: 0 0 0 16px rgba(255,209,102,0); }
-	100% { box-shadow: 0 0 0 0 rgba(255,209,102,0); }
-}
-@keyframes shineSweep {
-	0% { transform: translateX(-160%) rotate(20deg); opacity: 0; }
-	30% { opacity: 0.9; }
-	100% { transform: translateX(160%) rotate(20deg); opacity: 0; }
-}
+/* Removed animations for backdrop, pop, fade, avatar pulse, shine sweep */
 
 .modal:not(.hidden) {
-	animation: modalBackdropIn 300ms ease-out both;
+	animation: none !important;
 }
 .modal:not(.hidden) .modal-content {
-	animation: popIn 380ms cubic-bezier(.2,.8,.2,1) both;
+	animation: none !important;
 }
 .modal:not(.hidden) .modal-actions {
-	animation: fadeUp 420ms ease-out 140ms both;
+	animation: none !important;
 }
 .win-avatar { position: relative; overflow: hidden; }
 .modal:not(.hidden) .win-avatar::after {
@@ -71,18 +49,19 @@ html, body { height: 100%; margin: 0; background: #0b0b0b; color: #eaeaea; font-
 	position: absolute;
 	inset: -6px;
 	border-radius: 9999px;
-	animation: avatarPulse 1600ms ease-out 200ms infinite;
+	animation: none !important;
 	pointer-events: none;
+	box-shadow: none !important;
 }
 .modal:not(.hidden) .win-avatar::before {
 	content: "";
 	position: absolute;
 	inset: -2px;
 	border-radius: 9999px;
-	background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%);
+	background: none !important;
 	filter: blur(0.2px);
 	transform: translateX(-160%) rotate(20deg);
-	animation: shineSweep 1200ms ease-out 400ms both;
+	animation: none !important;
 }
 
 /* In-arena leaderboard removed */
