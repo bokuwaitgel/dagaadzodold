@@ -112,7 +112,7 @@ export default function HomePage() {
               </select>
             </label>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Search
-              <input type="search" placeholder="Player name" value={playerQuery} onChange={e=>setPlayerQuery(e.target.value)} />
+              <input type="search" placeholder="name or @username" value={playerQuery} onChange={e=>setPlayerQuery(e.target.value)} />
             </label>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Top
               <select value={topN} onChange={e=>setTopN(e.target.value)}>
@@ -228,7 +228,13 @@ export default function HomePage() {
                       const mk = Number.isFinite(Number(minKills)) && minKills !== '' ? Number(minKills) : null;
                       const md = Number.isFinite(Number(minDamage)) && minDamage !== '' ? Number(minDamage) : null;
                       const rows = (f.leaderboard || [])
-                        .filter(p => !q || (p.name || '').toLowerCase().includes(q))
+                        .filter(p => {
+                          if (!q) return true;
+                          const name = (p.name || '').toLowerCase();
+                          const uname = (p.username || '').toLowerCase();
+                          const qNoAt = q.startsWith('@') ? q.slice(1) : q;
+                          return name.includes(q) || (uname && (uname.includes(qNoAt) || ('@'+uname).includes(q)));
+                        })
                         .filter(p => (mk === null ? true : (p.kills || 0) >= mk))
                         .filter(p => (md === null ? true : (p.damageDealt || 0) >= md));
                       const sort = sortState[f.id] || { key: 'kills' as const, dir: 'desc' as const };

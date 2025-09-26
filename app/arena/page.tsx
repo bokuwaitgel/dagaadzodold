@@ -173,7 +173,7 @@ export default function ArenaPage() {
       }
       return out;
     }
-    async function buildPeopleFromRecords(records: any[]) {
+  async function buildPeopleFromRecords(records: any[]) {
       const imgs = await Promise.all(records.map(async (r) => { try { if (r.image) return await loadImage(r.image); } catch {} return null; }));
       const values = records.map(r => typeof r.size === 'number' ? r.size : (typeof r.followers === 'number' ? r.followers : null));
       const nums = values.filter((v: any) => v !== null);
@@ -186,6 +186,10 @@ export default function ArenaPage() {
       (p as any).profileUrl = `https://www.instagram.com/${r.username}/`;
       (p as any).username = r.username;
           }
+        // Nickname support
+        if (r.nickname || r.nick || r.alias) {
+          (p as any).nickname = r.nickname || r.nick || r.alias;
+        }
         // All followers have exactly the same scale (no follower count advantage)
         p.scale = 1;
         return p;
@@ -239,6 +243,19 @@ export default function ArenaPage() {
   rampRange.addEventListener('input', () => { state.sim.growRate = parseFloat(rampRange.value); rampLabel.textContent = `+${(state.sim.growRate*100).toFixed(1)}%/s`; });
     seedInput.addEventListener('change', () => { rand = makeRngFromSeed(seedInput.value.trim()); (state as any).rand = rand; layoutPeople(rand, state.people, canvas.width, canvas.height); });
 
+    const searchInput = document.getElementById('searchInput') as HTMLInputElement | null;
+    function applySearch() {
+      const q = (searchInput?.value || '').trim().toLowerCase();
+      if (!q) { state.people.forEach((p:any)=>{ p.searchMatch = false; }); return; }
+      state.people.forEach((p:any) => {
+        const name = (p.name || '').toLowerCase();
+        const uname = ((p as any).username || '').toLowerCase();
+        const nick = ((p as any).nickname || '').toLowerCase();
+        p.searchMatch = name.includes(q) || uname.includes(q) || nick.includes(q) || (uname && ('@'+uname).includes(q));
+      });
+    }
+    searchInput?.addEventListener('input', applySearch);
+
     sampleBtn.addEventListener('click', async () => {
       const N = 60;
       const recs = Array.from({length: N}, (_, i) => ({ name: `Follower ${i+1}`, image: `https://picsum.photos/seed/fbr-${i}/128` }));
@@ -261,7 +278,8 @@ export default function ArenaPage() {
                 : (typeof r.followers === 'number' ? r.followers
                 : (typeof r.count === 'number' ? r.count : undefined)));
               const sizeVal = typeof r.size === 'number' ? r.size : undefined;
-              return { name, image, username, size: sizeVal, followers: followersVal };
+              const nickname = r.nickname || r.nick || r.alias || undefined;
+              return { name, image, username, size: sizeVal, followers: followersVal, nickname };
             });
           }
         } else { recs = parseCSV(text); }
@@ -313,7 +331,8 @@ export default function ArenaPage() {
                 : (typeof r.followers === 'number' ? r.followers
                 : (typeof r.count === 'number' ? r.count : undefined)));
               const sizeVal = typeof r.size === 'number' ? r.size : undefined;
-              return { name, image, username, size: sizeVal, followers: followersVal };
+              const nickname = r.nickname || r.nick || r.alias || undefined;
+              return { name, image, username, size: sizeVal, followers: followersVal, nickname };
             });
           }
         } else { recs = parseCSV(text); }
@@ -387,6 +406,10 @@ export default function ArenaPage() {
             <button id="sampleBtn" title="Generate 60 sample avatars">Sample 60</button>
             <button id="downloadLogBtn" title="Save the current battle log">Download Log</button>
             <a href="/" title="View saved fights" style={{ textDecoration:'none' }}><button>View Leaderboards</button></a>
+            <label className="group">
+              Search
+              <input id="searchInput" type="text" placeholder="name @user nickname" />
+            </label>
           </div>
         </div>
       </div>
