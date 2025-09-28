@@ -131,8 +131,11 @@ export default function ArenaPage() {
         if (/^https?:/i.test(u.protocol)) {
           const proxied = `/api/proxy/image?url=${encodeURIComponent(u.toString())}`;
           candidates.push(proxied);
-          // Delay raw URL attempt until after explicit proxy try
-          candidates.push(u.toString());
+          // Only try raw URL if not Instagram (which blocks CORS)
+          const host = u.hostname.toLowerCase();
+          if (!host.includes('instagram') && !host.includes('fbcdn')) {
+            candidates.push(u.toString());
+          }
         } else {
           candidates.push(upgraded);
         }
@@ -174,13 +177,20 @@ export default function ArenaPage() {
       return out;
     }
   async function buildPeopleFromRecords(records: any[]) {
-      const imgs = await Promise.all(records.map(async (r) => { try { if (r.image) return await loadImage(r.image); } catch {} return null; }));
+      const imgs = await Promise.all(records.map(async (r, i) => { 
+        if (i < 100) { // Only load images for first 100 people
+          try { if (r.image) return await loadImage(r.image); } catch {} 
+        }
+        return null; // Use placeholder for others
+      }));
       const values = records.map(r => typeof r.size === 'number' ? r.size : (typeof r.followers === 'number' ? r.followers : null));
       const nums = values.filter((v: any) => v !== null);
       let minV: number | null = null, maxV: number | null = null;
       if (nums.length) { minV = Math.min(...nums); maxV = Math.max(...nums); }
     state.people = records.map((r, i) => {
         const p = createPerson(rand, i, r.name || `Follower ${i+1}`, imgs[i]);
+        // Store original image URL for later loading
+        if (r.image) (p as any).originalImage = r.image;
           // Attach Instagram profile URL if username provided
           if (r.username) {
       (p as any).profileUrl = `https://www.instagram.com/${r.username}/`;
@@ -360,6 +370,17 @@ export default function ArenaPage() {
           const simThrottle = state.people.length > 3000 ? 3 : state.people.length > 2000 ? 2 : 1;
           if (frameCount % simThrottle === 0) {
             updateMotion(state, dt * simThrottle, canvas.width, canvas.height);
+            // Load images for remaining people if <= 1000 alive
+            const alive = state.people.filter((p: any) => p.alive);
+            if (alive.length <= 1000) {
+              alive.forEach(async (p: any) => {
+                if (!p.img && p.originalImage) {
+                  try {
+                    p.img = await loadImage(p.originalImage);
+                  } catch {}
+                }
+              });
+            }
           }
           if (state.sim.winner) { showWinner(state.sim.winner); }
         }
