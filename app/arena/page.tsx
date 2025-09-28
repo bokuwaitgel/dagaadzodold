@@ -349,12 +349,18 @@ export default function ArenaPage() {
       const recs = Array.from({length:N}, (_,i)=>({ name:`Follower ${i+1}`, image:`https://picsum.photos/seed/fbr0-${i}/128` }));
       await buildPeopleFromRecords(recs);
       let last = performance.now();
+      let frameCount = 0;
       function loop(now: number) {
         const dt = Math.min(0.05, (now - last)/1000); last = now;
+        frameCount++;
         if (state.sim.running) {
           state.sim.timeSec = (state.sim.timeSec || 0) + dt;
           stepBattle(state, dt);
-          updateMotion(state, dt, canvas.width, canvas.height);
+          // Throttle simulation updates for large crowds
+          const simThrottle = state.people.length > 3000 ? 3 : state.people.length > 2000 ? 2 : 1;
+          if (frameCount % simThrottle === 0) {
+            updateMotion(state, dt * simThrottle, canvas.width, canvas.height);
+          }
           if (state.sim.winner) { showWinner(state.sim.winner); }
         }
         renderer.pushEffectsFromSim(state.sim);
